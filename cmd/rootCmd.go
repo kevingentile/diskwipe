@@ -9,6 +9,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/cheggaaa/pb"
 	"github.com/spf13/cobra"
 )
 
@@ -112,18 +113,26 @@ func (d *deleteRunner) run() error {
 	buffer := make([]byte, stepSize)
 	s := rand.NewSource(time.Now().UnixNano())
 	rng := rand.New(s)
+	totalProgress := (int(d.Config.TargetSize) * d.Config.Cycles)
+	bar := pb.StartNew(totalProgress)
+	bar.SetUnits(pb.U_BYTES)
+	bar.SetRefreshRate(time.Duration(time.Second * 5))
 
-	log.Println("Target Size:", d.Config.TargetSize)
-	for offset < d.Config.TargetSize {
-		if d.Config.Randomize {
-			rng.Read(buffer)
+	for i := 0; i < d.Config.Cycles; i++ {
+		for offset < d.Config.TargetSize {
+			if d.Config.Randomize {
+				rng.Read(buffer)
+			}
+			n, err := f.WriteAt(buffer, int64(offset))
+			if err != nil {
+				return err
+			}
+			offset += int64(n)
+			bar.Add(n)
 		}
-		n, err := f.WriteAt(buffer, int64(offset))
-		if err != nil {
-			return err
-		}
-		offset += int64(n)
 	}
+
+	bar.Finish()
 
 	return nil
 }
